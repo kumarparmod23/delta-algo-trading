@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delta Algo Trading Platform</title>
+<link rel="stylesheet" href="/static/css/main.css">
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar">
+  <div class="logo">⚡ DELTA ALGO</div>
+  <div class="price-bar">
+    <div class="price-badge"><span class="sym">BTC</span><span class="val" id="price-BTCUSD">--</span></div>
+    <div class="price-badge"><span class="sym">ETH</span><span class="val" id="price-ETHUSD">--</span></div>
+    <div class="price-badge"><span class="sym">SOL</span><span class="val" id="price-SOLUSD">--</span></div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span class="mode-badge paper" id="mode-badge">PAPER</span>
+    <span style="color:var(--text2);font-size:11px">v1.0</span>
+  </div>
+</nav>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" data-tab="chart">📈 Chart</div>
+  <div class="tab" data-tab="strategy">🤖 Strategy</div>
+  <div class="tab" data-tab="backtest">🧪 Backtest</div>
+  <div class="tab" data-tab="portfolio">💼 Portfolio</div>
+  <div class="tab" data-tab="history">📋 History</div>
+  <div class="tab" data-tab="alerts">🔔 Alerts</div>
+</div>
+
+<!-- ═══════════════════════════════════ CHART PANEL ═══════════════════════════════════ -->
+<div class="panel chart-panel" id="panel-chart">
+  <div class="chart-main">
+    <div class="chart-toolbar">
+      <select id="symbol-select"><option>BTCUSD</option></select>
+      <select id="tf-select">
+        <option value="1m">1m</option><option value="5m">5m</option>
+        <option value="15m" selected>15m</option><option value="30m">30m</option>
+        <option value="1h">1h</option><option value="4h">4h</option>
+        <option value="1d">1D</option>
+      </select>
+      <button id="refresh-btn">↺ Refresh</button>
+      <div class="indicator-toggle">
+        <button class="ind-btn active" id="ind-sma">SMA</button>
+        <button class="ind-btn active" id="ind-ema">EMA</button>
+        <button class="ind-btn active" id="ind-bb">BB</button>
+        <button class="ind-btn active" id="ind-pa">Price Action</button>
+      </div>
+    </div>
+    <div id="chart-container" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="chart-loading" class="loading" style="display:none;position:absolute;z-index:10;">Loading...</div>
+      <div id="main-chart" style="flex:6;min-height:0;"></div>
+      <div id="rsi-chart"  style="flex:2;min-height:0;border-top:1px solid var(--border);"></div>
+      <div id="macd-chart" style="flex:2;min-height:0;border-top:1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="chart-sidebar">
+    <div class="sidebar-section">
+      <h4>Live Ticker</h4>
+      <div class="ticker-row"><span class="label">Price</span><span class="value" id="tk-price">--</span></div>
+      <div class="ticker-row"><span class="label">Volume</span><span class="value" id="tk-vol">--</span></div>
+    </div>
+    <div class="sidebar-section">
+      <h4>Indicators</h4>
+      <div class="ticker-row"><span class="label">RSI(14)</span><span id="ind-rsi" class="value">--</span></div>
+      <div class="ticker-row"><span class="label">MACD</span><span id="ind-macd" class="value">--</span></div>
+      <div class="ticker-row"><span class="label">BB Upper</span><span id="ind-bb-u" class="value">--</span></div>
+      <div class="ticker-row"><span class="label">BB Lower</span><span id="ind-bb-l" class="value">--</span></div>
+      <div class="ticker-row"><span class="label">ATR(14)</span><span id="ind-atr" class="value">--</span></div>
+    </div>
+    <div class="sidebar-section">
+      <h4>Orderbook</h4>
+      <table class="ob-table">
+        <tr><th>Ask</th><th>Size</th></tr>
+        <tbody id="ob-asks"></tbody>
+        <tr><th>Bid</th><th>Size</th></tr>
+        <tbody id="ob-bids"></tbody>
+      </table>
+    </div>
+    <div class="sidebar-section">
+      <h4>Quick Order</h4>
+      <div class="form-row">
+        <div class="form-group"><label>Symbol</label>
+          <input id="qo-sym" type="text" value="BTCUSD" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:4px;width:100%"></div>
+        <div class="form-group"><label>Qty</label>
+          <input id="qo-qty" type="number" value="1" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px;border-radius:4px;width:100%"></div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-success" style="flex:1" onclick="quickOrder('buy')">BUY</button>
+        <button class="btn btn-danger"  style="flex:1" onclick="quickOrder('sell')">SELL</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <h4>Open Positions</h4>
+      <div id="sidebar-positions"><span class="loading">Loading...</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ STRATEGY PANEL ═══════════════════════════════════ -->
+<div class="panel" id="panel-strategy" style="flex-direction:row;gap:16px;padding:16px;overflow-y:auto;">
+  <!-- Builder -->
+  <div class="card" style="flex:1;overflow-y:auto;">
+    <h3>Strategy Builder</h3>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="strat-name" type="text" placeholder="My Strategy"></div>
+      <div class="form-group"><label>Symbol</label><input id="strat-symbol" type="text" value="BTCUSD"></div>
+      <div class="form-group"><label>Timeframe</label>
+        <select id="strat-tf">
+          <option value="1m">1m</option><option value="5m">5m</option>
+          <option value="15m" selected>15m</option><option value="30m">30m</option>
+          <option value="1h">1h</option><option value="4h">4h</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Mode</label>
+        <select id="strat-mode"><option value="paper">Paper</option><option value="live">Live</option></select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:8px;font-size:11px;color:var(--green);font-weight:600;">ENTRY LONG CONDITIONS</div>
+    <div id="cond-long" class="condition-builder"></div>
+    <button class="add-condition-btn" onclick="conditionRow('long')">+ Add Long Entry Condition</button>
+
+    <div style="margin:10px 0 8px;font-size:11px;color:var(--red);font-weight:600;">ENTRY SHORT CONDITIONS</div>
+    <div id="cond-short" class="condition-builder"></div>
+    <button class="add-condition-btn" onclick="conditionRow('short')">+ Add Short Entry Condition</button>
+
+    <div style="margin:10px 0 8px;font-size:11px;color:var(--yellow);font-weight:600;">EXIT CONDITIONS</div>
+    <div id="cond-exit" class="condition-builder"></div>
+    <button class="add-condition-btn" onclick="conditionRow('exit')">+ Add Exit Condition</button>
+
+    <div style="margin-top:12px;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:6px;">RISK MANAGEMENT</div>
+    <div class="form-row">
+      <div class="form-group"><label>Stop Loss %</label><input id="sl-pct" type="number" value="2" step="0.1"></div>
+      <div class="form-group"><label>Take Profit %</label><input id="tp-pct" type="number" value="4" step="0.1"></div>
+      <div class="form-group"><label>Position Size %</label><input id="size-pct" type="number" value="10" step="1"></div>
+      <div class="form-group"><label>Order Qty</label><input id="order-qty" type="number" value="1" step="0.01"></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveStrategy()">💾 Save Strategy</button>
+  </div>
+
+  <!-- Strategy List -->
+  <div class="card" style="width:320px;overflow-y:auto;">
+    <h3>Saved Strategies</h3>
+    <div id="strategy-list"><span class="loading">Loading...</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ BACKTEST PANEL ═══════════════════════════════════ -->
+<div class="panel" id="panel-backtest" style="flex-direction:row;gap:16px;padding:16px;overflow-y:auto;">
+  <div class="card" style="width:320px;">
+    <h3>Backtest Config</h3>
+    <div class="form-row"><div class="form-group"><label>Strategy</label>
+      <select id="bt-strategy"></select>
+    </div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Symbol</label><input id="bt-symbol" value="BTCUSD"></div>
+      <div class="form-group"><label>Timeframe</label>
+        <select id="bt-tf">
+          <option value="1h" selected>1h</option><option value="4h">4h</option><option value="1d">1D</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Start Date</label><input id="bt-start" type="date" value="2024-01-01"></div>
+      <div class="form-group"><label>End Date</label><input id="bt-end" type="date" value="2024-12-31"></div>
+    </div>
+    <div class="form-row"><div class="form-group"><label>Initial Capital ($)</label>
+      <input id="bt-capital" type="number" value="10000">
+    </div></div>
+    <button id="bt-run-btn" class="btn btn-primary" onclick="runBacktest()" style="width:100%">▶ Run Backtest</button>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;" id="bt-results" style="display:none;">
+    <div class="metrics-grid" id="bt-metrics"></div>
+    <div class="card" style="margin-bottom:12px;">
+      <h3>Equity Curve</h3>
+      <canvas id="equity-curve-canvas" style="width:100%;height:200px;"></canvas>
+    </div>
+    <div class="card">
+      <h3>Trade Log</h3>
+      <table class="data-table">
+        <thead><tr><th>Side</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Reason</th></tr></thead>
+        <tbody id="bt-trade-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ PORTFOLIO PANEL ═══════════════════════════════════ -->
+<div class="panel" id="panel-portfolio" style="flex-direction:column;padding:16px;overflow-y:auto;gap:16px;">
+  <div class="portfolio-summary">
+    <div class="summary-card"><div class="s-label">Total Value</div><div class="s-value green" id="bal-total">--</div></div>
+    <div class="summary-card"><div class="s-label">Available</div><div class="s-value" id="bal-avail">--</div></div>
+    <div class="summary-card"><div class="s-label">Realized P&L</div><div class="s-value" id="bal-rpnl">--</div></div>
+    <div class="summary-card"><div class="s-label">Unrealized P&L</div><div class="s-value" id="bal-urpnl">--</div></div>
+  </div>
+  <div class="card">
+    <h3>Open Positions</h3>
+    <table class="data-table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Current</th><th>Unr. P&L</th><th>Action</th></tr></thead>
+      <tbody id="positions-body"></tbody>
+    </table>
+  </div>
+  <div style="text-align:right"><button class="btn btn-primary" onclick="loadPortfolio()">↺ Refresh</button></div>
+</div>
+
+<!-- ═══════════════════════════════════ HISTORY PANEL ═══════════════════════════════════ -->
+<div class="panel" id="panel-history" style="flex-direction:column;padding:16px;overflow-y:auto;">
+  <div class="card">
+    <h3>Trade History</h3>
+    <table class="data-table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Status</th><th>Mode</th><th>Time</th></tr></thead>
+      <tbody id="history-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ ALERTS PANEL ═══════════════════════════════════ -->
+<div class="panel" id="panel-alerts" style="flex-direction:row;gap:16px;padding:16px;overflow-y:auto;">
+  <div class="card" style="width:320px;">
+    <h3>Create Alert</h3>
+    <div class="form-row"><div class="form-group"><label>Name</label><input id="al-name" placeholder="BTC Above 70k"></div></div>
+    <div class="form-row">
+      <div class="form-group"><label>Symbol</label><input id="al-symbol" value="BTCUSD"></div>
+      <div class="form-group"><label>Condition</label>
+        <select id="al-type">
+          <option value="price_above">Price Above</option>
+          <option value="price_below">Price Below</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><div class="form-group"><label>Threshold</label>
+      <input id="al-threshold" type="number" placeholder="70000">
+    </div></div>
+    <button class="btn btn-primary" onclick="createAlert()">+ Create Alert</button>
+  </div>
+  <div style="flex:1;">
+    <div class="card">
+      <h3>Active Alerts</h3>
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Symbol</th><th>Condition</th><th>Value</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="alerts-body"></tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <h3>Alert History</h3>
+      <div id="alert-history-list"><span class="loading">No alerts yet</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- SCRIPTS -->
+<script src="/static/js/app.js"></script>
+<script src="/static/js/chart.js"></script>
+<script src="/static/js/strategy_builder.js"></script>
+
+<script>
+async function quickOrder(side) {
+  const sym = document.getElementById("qo-sym").value;
+  const qty = parseFloat(document.getElementById("qo-qty").value);
+  const res = await api("/api/trading/order", { method:"POST", body: JSON.stringify({ symbol: sym, side, qty }) });
+  if (res.error) showToast(res.error, "error");
+  else showToast(`${side.toUpperCase()} order placed: ${qty} ${sym}`, "success");
+  loadSidebarPositions();
+}
+
+async function loadSidebarPositions() {
+  const s = await api("/api/portfolio/summary");
+  const el = document.getElementById("sidebar-positions");
+  if (!s.positions || !s.positions.length) { el.innerHTML = '<span class="loading">No open positions</span>'; return; }
+  el.innerHTML = s.positions.map(p => `
+    <div class="position-row">
+      <span>${p.symbol} <span class="${p.side==='buy'?'green':'red'}">${p.side.toUpperCase()}</span></span>
+      <span class="${p.unrealized_pnl>=0?'green':'red'}">${p.unrealized_pnl>=0?'+':''}${p.unrealized_pnl}</span>
+    </div>`).join("");
+}
+
+// Load backtest strategies when that tab opens
+document.querySelectorAll(".tab").forEach(t => {
+  if (t.dataset.tab === "backtest") {
+    t.addEventListener("click", loadBacktestStrategies);
+  }
+});
+
+setInterval(loadSidebarPositions, 10000);
+loadSidebarPositions();
+</script>
+</body>
+</html>
