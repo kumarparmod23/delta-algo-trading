@@ -11,6 +11,7 @@ from api.websocket import manager
 from api.routes import market, strategy, backtest, trading, portfolio, alerts
 from exchange.delta_websocket import DeltaWebSocket
 from data.ticker import update_ticker
+from data.market_data import get_configured_symbols
 
 
 async def on_ws_message(msg: dict):
@@ -28,12 +29,15 @@ async def lifespan(app: FastAPI):
     await init_db()
     start_scheduler()
     delta_ws = DeltaWebSocket(on_ws_message)
+    symbols = get_configured_symbols() or ["BTCUSD", "ETHUSD", "SOLUSD"]
     await delta_ws.subscribe([
-        {"name": "v2/ticker", "symbols": ["BTCUSD", "ETHUSD", "SOLUSD"]},
+        {"name": "v2/ticker", "symbols": symbols},
     ])
     ws_task = asyncio.create_task(delta_ws.connect())
     yield
+    await delta_ws.stop()
     ws_task.cancel()
+    await asyncio.gather(ws_task, return_exceptions=True)
 
 
 app = FastAPI(title="Delta Algo Trading Platform", lifespan=lifespan)
