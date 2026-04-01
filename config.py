@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     db_path: str = "./trading.db"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    api_auth_enabled: bool = False
+    api_tokens: str = ""
+    api_admin_tokens: str = ""
+    market_symbols: str = "BTCUSD,ETHUSD,SOLUSD"
 
     class Config:
         env_file = ".env"

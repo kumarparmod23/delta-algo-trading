@@ -6,18 +6,26 @@ from core.database import get_db
 from core.models import Strategy
 from core.schemas import StrategyCreate, StrategyOut
 from strategy.registry import register, unregister
+from api.auth import require_auth, require_admin
 
 router = APIRouter(prefix="/api/strategy", tags=["strategy"])
 
 
 @router.get("/", response_model=list[StrategyOut])
-async def list_strategies(db: AsyncSession = Depends(get_db)):
+async def list_strategies(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_auth),
+):
     result = await db.execute(select(Strategy))
     return result.scalars().all()
 
 
 @router.post("/", response_model=StrategyOut)
-async def create_strategy(data: StrategyCreate, db: AsyncSession = Depends(get_db)):
+async def create_strategy(
+    data: StrategyCreate,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_admin),
+):
     s = Strategy(**data.model_dump())
     db.add(s)
     await db.commit()
@@ -26,7 +34,12 @@ async def create_strategy(data: StrategyCreate, db: AsyncSession = Depends(get_d
 
 
 @router.put("/{sid}", response_model=StrategyOut)
-async def update_strategy(sid: int, data: StrategyCreate, db: AsyncSession = Depends(get_db)):
+async def update_strategy(
+    sid: int,
+    data: StrategyCreate,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_admin),
+):
     result = await db.execute(select(Strategy).where(Strategy.id == sid))
     s = result.scalars().first()
     if not s:
@@ -39,7 +52,11 @@ async def update_strategy(sid: int, data: StrategyCreate, db: AsyncSession = Dep
 
 
 @router.delete("/{sid}")
-async def delete_strategy(sid: int, db: AsyncSession = Depends(get_db)):
+async def delete_strategy(
+    sid: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_admin),
+):
     result = await db.execute(select(Strategy).where(Strategy.id == sid))
     s = result.scalars().first()
     if not s:
@@ -51,7 +68,11 @@ async def delete_strategy(sid: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{sid}/activate")
-async def activate_strategy(sid: int, db: AsyncSession = Depends(get_db)):
+async def activate_strategy(
+    sid: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_admin),
+):
     result = await db.execute(select(Strategy).where(Strategy.id == sid))
     s = result.scalars().first()
     if not s:
@@ -67,7 +88,11 @@ async def activate_strategy(sid: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{sid}/deactivate")
-async def deactivate_strategy(sid: int, db: AsyncSession = Depends(get_db)):
+async def deactivate_strategy(
+    sid: int,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(require_admin),
+):
     result = await db.execute(select(Strategy).where(Strategy.id == sid))
     s = result.scalars().first()
     if not s:

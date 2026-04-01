@@ -4,6 +4,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.models import Candle
 from exchange.delta_client import delta_client
+from config import settings
 
 RESOLUTION_SECONDS = {
     "1m": 60, "3m": 180, "5m": 300, "15m": 900,
@@ -61,4 +62,11 @@ def candles_to_df(raw: list) -> pd.DataFrame:
 
 async def get_symbols(db: AsyncSession) -> list:
     products = await delta_client.get_products()
-    return [p["symbol"] for p in products if p.get("symbol")]
+    symbols = [p["symbol"] for p in products if p.get("symbol")]
+    return sorted(set(symbols))
+
+
+def get_configured_symbols() -> list[str]:
+    raw = settings.market_symbols if hasattr(settings, "market_symbols") else ""
+    symbols = [symbol.strip().upper() for symbol in raw.split(",") if symbol.strip()]
+    return sorted(set(symbols))
